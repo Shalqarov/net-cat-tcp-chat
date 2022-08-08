@@ -30,6 +30,7 @@ func startServer() {
 	if err != nil {
 		log.Fatalf("Could not listen: %v", err)
 	}
+	defer listener.Close()
 
 	log.Printf("Listening for connections on %s", listener.Addr().String())
 
@@ -37,16 +38,17 @@ func startServer() {
 		conn, err := listener.Accept()
 		if err != nil {
 			log.Printf("Error accepting connection from client: %s", err)
+			conn.Close()
 			continue
 		}
-		go processClient(conn)
+		go handleConnection(conn)
 	}
 }
 
-func processClient(conn net.Conn) {
+func handleConnection(conn net.Conn) {
+	defer conn.Close()
 	_, err := io.Copy(os.Stdout, conn)
 	if err != nil {
 		log.Println(err)
 	}
-	conn.Close()
 }
