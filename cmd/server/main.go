@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strings"
 	"sync"
+	"time"
 )
 
 var (
@@ -17,6 +19,8 @@ var (
 
 const (
 	greetings = "Welcome to TCP-Chat!\n         _nnnn_\n        dGGGGMMb\n       @p~qp~~qMb\n       M|@||@) M|\n       @,----.JM|\n      JS^\\__/  qKL\n     dZP        qKRb\n    dZP          qKKb\n   fZP            SMMb\n   HZM            MMMM\n   FqM            MMMM\n __| \".        |\\dS\"qML\n |    `.       | `' \\Zq\n_)      \\.___.,|     .'\n\\____   )MMMMMP|   .'\n     `-'       `--'\n[ENTER YOUR NAME]: "
+
+	timeFormat = "2006-01-02 15:04:05"
 )
 
 type Connect struct {
@@ -35,9 +39,6 @@ func main() {
 
 func startServer() {
 	addr := fmt.Sprintf("%s:%d", *host, *port)
-	connections := Connect{
-		users: &sync.Map{},
-	}
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatalf("Could not listen: %v", err)
@@ -45,7 +46,9 @@ func startServer() {
 	defer listener.Close()
 
 	log.Printf("Listening for connections on %s", listener.Addr().String())
-
+	connections := Connect{
+		users: &sync.Map{},
+	}
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
@@ -66,27 +69,35 @@ func (c *Connect) handleConnection(conn net.Conn) {
 		log.Println(err.Error())
 		return
 	}
-	c.users.Store(username, conn)
-
+	fmt.Print([]rune(username))
+	c.users.Store(conn, strings.TrimRight(username, "\r\n"))
 	defer func() {
 		conn.Close()
-		c.users.Delete(username)
+		c.users.Delete(conn)
 	}()
 
 	for {
 		userInput, err := bufio.NewReader(conn).ReadString('\n')
 		if err != nil {
-			log.Println(err.Error())
 			return
 		}
-		log.Println(userInput)
+		if userInput == "\n" {
+			fmt.Fprint(conn, c.message(time.Now(), conn))
+			continue
+		}
 		c.users.Range(func(key, value interface{}) bool {
-			if user, ok := value.(net.Conn); ok && user != conn {
-				if _, err := conn.Write([]byte(userInput)); err != nil {
-					log.Println("error on writing to connection", err.Error())
-				}
+			if _, ok := value.(string); ok && key.(net.Conn) != conn {
+				fmt.Fprintln(key.(net.Conn))
+				fmt.Fprint(key.(net.Conn), c.message(time.Now(), conn))
+				fmt.Fprint(key.(net.Conn), userInput)
+				fmt.Fprint(key.(net.Conn), c.message(time.Now(), key.(net.Conn)))
 			}
 			return true
 		})
 	}
+}
+
+func (c *Connect) message(now time.Time, conn net.Conn) string {
+	username, _ := c.users.Load(conn)
+	return string([]byte("[" + now.Format(timeFormat) + "]" + "[" + username.(string) + "]:"))
 }
