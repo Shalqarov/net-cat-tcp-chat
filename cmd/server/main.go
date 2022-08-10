@@ -1,12 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
-	"io"
 	"log"
 	"net"
-	"os"
+	"sync"
 )
 
 var (
@@ -16,11 +16,13 @@ var (
 )
 
 const (
-	greetings      = "Welcome to TCP-Chat!\n         _nnnn_\n        dGGGGMMb\n       @p~qp~~qMb\n       M|@||@) M|\n       @,----.JM|\n      JS^\\__/  qKL\n     dZP        qKRb\n    dZP          qKKb\n   fZP            SMMb\n   HZM            MMMM\n   FqM            MMMM\n __| \".        |\\dS\"qML\n |    `.       | `' \\Zq\n_)      \\.___.,|     .'\n\\____   )MMMMMP|   .'\n     `-'       `--'\n[ENTER YOUR NAME]: "
-	timeFormat     = "2006-01-02 15:04:05"
-	maxConnections = 10
-	usage          = "[USAGE]: ./TCPChat $port"
+	greetings = "Welcome to TCP-Chat!\n         _nnnn_\n        dGGGGMMb\n       @p~qp~~qMb\n       M|@||@) M|\n       @,----.JM|\n      JS^\\__/  qKL\n     dZP        qKRb\n    dZP          qKKb\n   fZP            SMMb\n   HZM            MMMM\n   FqM            MMMM\n __| \".        |\\dS\"qML\n |    `.       | `' \\Zq\n_)      \\.___.,|     .'\n\\____   )MMMMMP|   .'\n     `-'       `--'\n[ENTER YOUR NAME]: "
 )
+
+type Connect struct {
+	sync.Mutex
+	users *sync.Map
+}
 
 func main() {
 	flag.Parse()
@@ -33,7 +35,9 @@ func main() {
 
 func startServer() {
 	addr := fmt.Sprintf("%s:%d", *host, *port)
-
+	connections := Connect{
+		users: &sync.Map{},
+	}
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatalf("Could not listen: %v", err)
@@ -49,15 +53,40 @@ func startServer() {
 			conn.Close()
 			continue
 		}
-		fmt.Fprint(conn, greetings)
-		go handleConnection(conn)
+
+		go connections.handleConnection(conn)
 	}
 }
 
-func handleConnection(conn net.Conn) {
-	defer conn.Close()
-	_, err := io.Copy(os.Stdout, conn)
+func (c *Connect) handleConnection(conn net.Conn) {
+	username := ""
+	fmt.Fprint(conn, greetings)
+	username, err := bufio.NewReader(conn).ReadString('\n')
 	if err != nil {
-		log.Println(err)
+		log.Println(err.Error())
+		return
+	}
+	c.users.Store(username, conn)
+
+	defer func() {
+		conn.Close()
+		c.users.Delete(username)
+	}()
+
+	for {
+		userInput, err := bufio.NewReader(conn).ReadString('\n')
+		if err != nil {
+			log.Println(err.Error())
+			return
+		}
+		log.Println(userInput)
+		c.users.Range(func(key, value interface{}) bool {
+			if user, ok := value.(net.Conn); ok && user != conn {
+				if _, err := conn.Write([]byte(userInput)); err != nil {
+					log.Println("error on writing to connection", err.Error())
+				}
+			}
+			return true
+		})
 	}
 }

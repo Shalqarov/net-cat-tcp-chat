@@ -15,22 +15,27 @@ func StartClient(addr string) {
 	defer conn.Close()
 	fmt.Println("Connected...")
 	for {
-		go handleConnection(conn)
-		var source string
-		_, err := fmt.Scanln(&source)
-		if err != nil {
-			fmt.Println("invalid input")
-			continue
-		}
-		if n, err := conn.Write([]byte(source)); n == 0 || err != nil {
-			log.Fatalf(err.Error())
-		}
+		go readConn(conn)
 
-		fmt.Println()
+		go func(conn net.Conn) {
+			defer conn.Close()
+			var source string
+			_, err := fmt.Scanln(&source)
+			if err != nil {
+				fmt.Println("invalid input")
+			}
+			if n, err := conn.Write([]byte(source)); n == 0 || err != nil {
+				log.Fatalf(err.Error())
+			}
+
+			fmt.Println()
+		}(conn)
+
 	}
 }
 
-func handleConnection(conn net.Conn) {
+func readConn(conn net.Conn) {
+	defer conn.Close()
 	for {
 		buff := make([]byte, 1024)
 		n, err := conn.Read(buff)
