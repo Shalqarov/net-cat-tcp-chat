@@ -15,12 +15,20 @@ var (
 	port   = flag.Int("p", 0, "Port")
 )
 
+const (
+	greetings      = "Welcome to TCP-Chat!\n         _nnnn_\n        dGGGGMMb\n       @p~qp~~qMb\n       M|@||@) M|\n       @,----.JM|\n      JS^\\__/  qKL\n     dZP        qKRb\n    dZP          qKKb\n   fZP            SMMb\n   HZM            MMMM\n   FqM            MMMM\n __| \".        |\\dS\"qML\n |    `.       | `' \\Zq\n_)      \\.___.,|     .'\n\\____   )MMMMMP|   .'\n     `-'       `--'\n[ENTER YOUR NAME]: "
+	timeFormat     = "2006-01-02 15:04:05"
+	maxConnections = 10
+	usage          = "[USAGE]: ./TCPChat $port"
+)
+
 func main() {
 	flag.Parse()
-	if *listen {
-		startServer()
+	if !*listen {
+		log.Println("Listen flag is not true")
 		return
 	}
+	startServer()
 }
 
 func startServer() {
@@ -41,6 +49,7 @@ func startServer() {
 			conn.Close()
 			continue
 		}
+		fmt.Fprint(conn, greetings)
 		go handleConnection(conn)
 	}
 }
