@@ -18,14 +18,15 @@ var (
 )
 
 const (
-	WELCOME_MSG = "Welcome to TCP-Chat!\n         _nnnn_\n        dGGGGMMb\n       @p~qp~~qMb\n       M|@||@) M|\n       @,----.JM|\n      JS^\\__/  qKL\n     dZP        qKRb\n    dZP          qKKb\n   fZP            SMMb\n   HZM            MMMM\n   FqM            MMMM\n __| \".        |\\dS\"qML\n |    `.       | `' \\Zq\n_)      \\.___.,|     .'\n\\____   )MMMMMP|   .'\n     `-'       `--'\n[ENTER YOUR NAME]: "
-
-	TIME_FORMAT = "2006-01-02 15:04:05"
+	WELCOME_MSG     = "Welcome to TCP-Chat!\n         _nnnn_\n        dGGGGMMb\n       @p~qp~~qMb\n       M|@||@) M|\n       @,----.JM|\n      JS^\\__/  qKL\n     dZP        qKRb\n    dZP          qKKb\n   fZP            SMMb\n   HZM            MMMM\n   FqM            MMMM\n __| \".        |\\dS\"qML\n |    `.       | `' \\Zq\n_)      \\.___.,|     .'\n\\____   )MMMMMP|   .'\n     `-'       `--'\n[ENTER YOUR NAME]: "
+	TIME_FORMAT     = "2006-01-02 15:04:05"
+	MAX_CONNECTIONS = uint8(10)
 )
 
 type Server struct {
 	sync.Mutex
-	users *sync.Map
+	users     *sync.Map
+	connCount uint8
 }
 
 func main() {
@@ -56,6 +57,10 @@ func startServer() {
 			conn.Close()
 			continue
 		}
+		if server.connCount >= MAX_CONNECTIONS {
+			fmt.Fprintf(conn, "Connection failed, chat room is full.\nMax connection number is %d\n", MAX_CONNECTIONS)
+			conn.Close()
+		}
 		server.register(conn)
 		go server.handleConnection(conn)
 	}
@@ -64,6 +69,9 @@ func startServer() {
 func (s *Server) handleConnection(conn net.Conn) {
 	defer func() {
 		conn.Close()
+		s.Lock()
+		s.connCount--
+		s.Unlock()
 		s.users.Delete(conn)
 	}()
 
@@ -105,6 +113,9 @@ func (s *Server) register(conn net.Conn) {
 		log.Println(err.Error())
 		return
 	}
+	s.Lock()
+	s.connCount++
+	s.Unlock()
 	s.users.Store(conn, strings.TrimRight(username, "\r\n"))
 	fmt.Fprint(conn, s.message(conn))
 }
