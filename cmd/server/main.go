@@ -56,21 +56,12 @@ func startServer() {
 			conn.Close()
 			continue
 		}
-
+		connections.register(conn)
 		go connections.handleConnection(conn)
 	}
 }
 
 func (c *Connect) handleConnection(conn net.Conn) {
-	username := ""
-	fmt.Fprint(conn, greetings)
-	username, err := bufio.NewReader(conn).ReadString('\n')
-	if err != nil {
-		log.Println(err.Error())
-		return
-	}
-	fmt.Print([]rune(username))
-	c.users.Store(conn, strings.TrimRight(username, "\r\n"))
 	defer func() {
 		conn.Close()
 		c.users.Delete(conn)
@@ -87,17 +78,34 @@ func (c *Connect) handleConnection(conn net.Conn) {
 		}
 		c.users.Range(func(key, value interface{}) bool {
 			if _, ok := value.(string); ok && key.(net.Conn) != conn {
-				fmt.Fprintln(key.(net.Conn))
-				fmt.Fprint(key.(net.Conn), c.message(time.Now(), conn))
-				fmt.Fprint(key.(net.Conn), userInput)
-				fmt.Fprint(key.(net.Conn), c.message(time.Now(), key.(net.Conn)))
+				c.sendMessage(key.(net.Conn), userInput)
 			}
 			return true
 		})
+		fmt.Fprint(conn, c.message(time.Now(), conn))
 	}
 }
 
 func (c *Connect) message(now time.Time, conn net.Conn) string {
 	username, _ := c.users.Load(conn)
-	return string([]byte("[" + now.Format(timeFormat) + "]" + "[" + username.(string) + "]:"))
+	return "[" + now.Format(timeFormat) + "]" + "[" + username.(string) + "]:"
+}
+
+func (c *Connect) sendMessage(conn net.Conn, input string) {
+	fmt.Fprintln(conn)
+	fmt.Fprint(conn, c.message(time.Now(), conn))
+	fmt.Fprint(conn, input)
+	fmt.Fprint(conn, c.message(time.Now(), conn))
+}
+
+func (c *Connect) register(conn net.Conn) {
+	username := ""
+	fmt.Fprint(conn, greetings)
+	username, err := bufio.NewReader(conn).ReadString('\n')
+	if err != nil {
+		log.Println(err.Error())
+		return
+	}
+	c.users.Store(conn, strings.TrimRight(username, "\r\n"))
+	fmt.Fprint(conn, c.message(time.Now(), conn))
 }
