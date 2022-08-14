@@ -57,30 +57,23 @@ func startServer(host string, port int) {
 			conn.Close()
 			continue
 		}
+		server.Lock()
 		if server.connCount >= MAX_CONNECTIONS {
 			fmt.Fprintf(conn, "Connection failed, chat room is full.\nMax connection number is %d\n", MAX_CONNECTIONS)
 			conn.Close()
 		}
-		err = server.register(conn)
-		if err != nil {
-			fmt.Fprintf(conn, "Registration failed: %v\n", err.Error())
-			conn.Close()
-		}
+		server.Unlock()
 		go server.handleConnection(conn)
 	}
 }
 
-func (s *Server) logout(conn net.Conn) {
-	s.logoutMessage(conn)
-	conn.Close()
-	s.Lock()
-	s.connCount--
-	s.Unlock()
-	s.users.Delete(conn)
-}
-
 func (s *Server) handleConnection(conn net.Conn) {
 	defer s.logout(conn)
+	err := s.register(conn)
+	if err != nil {
+		fmt.Fprintf(conn, "Registration failed: %v\n", err.Error())
+		return
+	}
 	for {
 		userInput, err := bufio.NewReader(conn).ReadString('\n')
 		if err != nil {
@@ -95,14 +88,27 @@ func (s *Server) handleConnection(conn net.Conn) {
 	}
 }
 
+func (s *Server) logout(conn net.Conn) {
+	s.logoutMessage(conn)
+	conn.Close()
+	s.Lock()
+	s.connCount--
+	s.Unlock()
+	s.users.Delete(conn)
+}
+
 func (s *Server) message(conn net.Conn) string {
 	username, _ := s.users.Load(conn)
 	return "[" + time.Now().Format(TIME_FORMAT) + "]" + "[" + username.(string) + "]:"
 }
 
-func (s *Server) logoutMessage(conn net.Conn) {
+func (s *Server) welcomeMessage(conn net.Conn) {
 	username, _ := s.users.Load(conn)
-	msg := fmt.Sprintf("%s has left our chat...\n", username.(string))
+	msg := fmt.Sprintf("%s has joined our chat...\n", username.(string))
+	s.notification(conn, msg)
+}
+
+func (s *Server) notification(conn net.Conn, msg string) {
 	s.users.Range(func(key, value interface{}) bool {
 		if _, ok := value.(string); ok && key.(net.Conn) != conn {
 			fmt.Fprintln(key.(net.Conn))
@@ -111,6 +117,12 @@ func (s *Server) logoutMessage(conn net.Conn) {
 		}
 		return true
 	})
+}
+
+func (s *Server) logoutMessage(conn net.Conn) {
+	username, _ := s.users.Load(conn)
+	msg := fmt.Sprintf("%s has left our chat...\n", username.(string))
+	s.notification(conn, msg)
 }
 
 func (s *Server) sendMessage(conn net.Conn, input string) {
@@ -136,5 +148,6 @@ func (s *Server) register(conn net.Conn) error {
 	s.Unlock()
 	s.users.Store(conn, strings.TrimRight(username, "\r\n"))
 	fmt.Fprint(conn, s.message(conn))
+	s.welcomeMessage(conn)
 	return nil
 }
