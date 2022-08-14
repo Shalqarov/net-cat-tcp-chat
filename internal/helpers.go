@@ -1,10 +1,21 @@
 package internal
 
 import (
+	"errors"
 	"fmt"
 	"net"
+	"strconv"
 	"time"
 )
+
+func PortParse(args []string) (int, error) {
+	if len(args) > 1 {
+		return 0, errors.New("invalid number of args")
+	} else if len(args) == 0 {
+		return 8989, nil
+	}
+	return strconv.Atoi(args[0])
+}
 
 func (s *Server) message(conn net.Conn) string {
 	username, _ := s.users.Load(conn)
