@@ -24,6 +24,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	log.SetOutput(file)
+	defer file.Close()
+
 	args := os.Args[1:]
 	port, err := PortParse(args)
 	if err != nil {
@@ -31,8 +34,6 @@ func main() {
 		fmt.Println("[USAGE]: ./TCPChat $port")
 		return
 	}
-	log.SetOutput(file)
-	defer file.Close()
 
 	internal.StartServer(port)
 }
