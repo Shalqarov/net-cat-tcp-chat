@@ -35,11 +35,11 @@ func main() {
 		log.Println("Listen flag is not true")
 		return
 	}
-	startServer()
+	startServer(*host, *port)
 }
 
-func startServer() {
-	addr := fmt.Sprintf("%s:%d", *host, *port)
+func startServer(host string, port int) {
+	addr := fmt.Sprintf("%s:%d", host, port)
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatalf("Could not listen: %v", err)
@@ -61,20 +61,26 @@ func startServer() {
 			fmt.Fprintf(conn, "Connection failed, chat room is full.\nMax connection number is %d\n", MAX_CONNECTIONS)
 			conn.Close()
 		}
-		server.register(conn)
+		err = server.register(conn)
+		if err != nil {
+			fmt.Fprintf(conn, "Registration failed: %v\n", err.Error())
+			conn.Close()
+		}
 		go server.handleConnection(conn)
 	}
 }
 
-func (s *Server) handleConnection(conn net.Conn) {
-	defer func() {
-		conn.Close()
-		s.Lock()
-		s.connCount--
-		s.Unlock()
-		s.users.Delete(conn)
-	}()
+func (s *Server) logout(conn net.Conn) {
+	s.logoutMessage(conn)
+	conn.Close()
+	s.Lock()
+	s.connCount--
+	s.Unlock()
+	s.users.Delete(conn)
+}
 
+func (s *Server) handleConnection(conn net.Conn) {
+	defer s.logout(conn)
 	for {
 		userInput, err := bufio.NewReader(conn).ReadString('\n')
 		if err != nil {
@@ -84,12 +90,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 			fmt.Fprint(conn, s.message(conn))
 			continue
 		}
-		s.users.Range(func(key, value interface{}) bool {
-			if _, ok := value.(string); ok && key.(net.Conn) != conn {
-				s.sendMessage(key.(net.Conn), userInput)
-			}
-			return true
-		})
+		s.sendMessage(conn, userInput)
 		fmt.Fprint(conn, s.message(conn))
 	}
 }
@@ -99,23 +100,41 @@ func (s *Server) message(conn net.Conn) string {
 	return "[" + time.Now().Format(TIME_FORMAT) + "]" + "[" + username.(string) + "]:"
 }
 
-func (s *Server) sendMessage(conn net.Conn, input string) {
-	fmt.Fprintln(conn)
-	fmt.Fprint(conn, s.message(conn))
-	fmt.Fprint(conn, input)
-	fmt.Fprint(conn, s.message(conn))
+func (s *Server) logoutMessage(conn net.Conn) {
+	username, _ := s.users.Load(conn)
+	msg := fmt.Sprintf("%s has left our chat...\n", username.(string))
+	s.users.Range(func(key, value interface{}) bool {
+		if _, ok := value.(string); ok && key.(net.Conn) != conn {
+			fmt.Fprintln(key.(net.Conn))
+			fmt.Fprint(key.(net.Conn), msg)
+			fmt.Fprint(key.(net.Conn), s.message(key.(net.Conn)))
+		}
+		return true
+	})
 }
 
-func (s *Server) register(conn net.Conn) {
+func (s *Server) sendMessage(conn net.Conn, input string) {
+	s.users.Range(func(key, value interface{}) bool {
+		if _, ok := value.(string); ok && key.(net.Conn) != conn {
+			fmt.Fprintln(key.(net.Conn))
+			fmt.Fprint(key.(net.Conn), s.message(conn))
+			fmt.Fprint(key.(net.Conn), input)
+			fmt.Fprint(key.(net.Conn), s.message(key.(net.Conn)))
+		}
+		return true
+	})
+}
+
+func (s *Server) register(conn net.Conn) error {
 	fmt.Fprint(conn, WELCOME_MSG)
 	username, err := bufio.NewReader(conn).ReadString('\n')
 	if err != nil {
-		log.Println(err.Error())
-		return
+		return err
 	}
 	s.Lock()
 	s.connCount++
 	s.Unlock()
 	s.users.Store(conn, strings.TrimRight(username, "\r\n"))
 	fmt.Fprint(conn, s.message(conn))
+	return nil
 }
