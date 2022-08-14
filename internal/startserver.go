@@ -21,6 +21,7 @@ func StartServer(host string, port int) {
 	defer listener.Close()
 
 	log.Printf("Listening for connections on %s", listener.Addr().String())
+	fmt.Printf("Listening for connections on %s", listener.Addr().String())
 	server := Server{
 		users: &sync.Map{},
 	}
