@@ -20,6 +20,7 @@ func (s *Server) register(conn net.Conn) error {
 	s.connCount++
 	s.Unlock()
 	s.users.Store(conn, strings.TrimRight(username, "\r\n"))
+	fmt.Fprint(conn, s.history)
 	fmt.Fprint(conn, s.message(conn))
 	s.welcomeMessage(conn)
 	return nil
@@ -37,6 +38,9 @@ func (s *Server) logout(conn net.Conn) {
 func (s *Server) welcomeMessage(conn net.Conn) {
 	username, _ := s.users.Load(conn)
 	msg := fmt.Sprintf("%s has joined our chat...\n", username.(string))
+	s.Lock()
+	s.history += s.message(conn) + msg
+	s.Unlock()
 	fmt.Printf("%s has joined to the server\n", username.(string))
 	log.Printf("%s has joined to the server\n", username.(string))
 	s.notification(conn, msg)
@@ -45,6 +49,9 @@ func (s *Server) welcomeMessage(conn net.Conn) {
 func (s *Server) logoutMessage(conn net.Conn) {
 	username, _ := s.users.Load(conn)
 	msg := fmt.Sprintf("%s has left our chat...\n", username.(string))
+	s.Lock()
+	s.history += s.message(conn) + msg
+	s.Unlock()
 	fmt.Printf("%s has left server\n", username.(string))
 	log.Printf("%s has left server\n", username.(string))
 	s.notification(conn, msg)
