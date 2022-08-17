@@ -12,15 +12,16 @@ const (
 	MAX_CONNECTIONS = uint8(10)
 )
 
-func StartServer(host string, port int) {
-	addr := fmt.Sprintf("%s:%d", host, port)
+func StartServer(port int) {
+	addr := fmt.Sprintf("localhost:%d", port)
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatalf("Could not listen: %v", err)
 	}
 	defer listener.Close()
 
-	log.Printf("Listening for connections on %s", listener.Addr().String())
+	log.Printf("Listening on the port :%d\n", port)
+	fmt.Printf("Listening on the port :%d\n", port)
 	server := Server{
 		users: &sync.Map{},
 	}

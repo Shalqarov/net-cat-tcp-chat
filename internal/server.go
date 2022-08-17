@@ -11,6 +11,7 @@ type Server struct {
 	sync.Mutex
 	users     *sync.Map
 	connCount uint8
+	history   string
 }
 
 func (s *Server) handleConnection(conn net.Conn) {
@@ -35,6 +36,9 @@ func (s *Server) handleConnection(conn net.Conn) {
 }
 
 func (s *Server) sendMessage(conn net.Conn, input string) {
+	s.Lock()
+	s.history += s.message(conn) + input
+	s.Unlock()
 	s.users.Range(func(key, value interface{}) bool {
 		if _, ok := value.(string); ok && key.(net.Conn) != conn {
 			fmt.Fprintln(key.(net.Conn))
