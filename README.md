@@ -1,7 +1,7 @@
 ## Net-cat
 
 ## How to start
-
+### Server:
 ```console
 [USAGE]: go run ./cmd/server/ *port*
 $ go run ./cmd/server/ 8989
@@ -11,6 +11,11 @@ Listening on the port :2525
 $ go run ./cmd/server/ 2525 localhost
 [USAGE]: ./TCPChat $port
 $
+```
+
+### Client:
+```
+$ nc localhost *port*
 ```
 
 ## Objectives
