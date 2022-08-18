@@ -16,6 +16,9 @@ type Server struct {
 
 func (s *Server) handleConnection(conn net.Conn) {
 	defer s.logout(conn)
+	s.Lock()
+	s.connCount++
+	s.Unlock()
 	err := s.register(conn)
 	if err != nil {
 		fmt.Fprintf(conn, "Registration failed: %v\n", err.Error())

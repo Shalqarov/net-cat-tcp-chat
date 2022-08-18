@@ -17,15 +17,10 @@ func (s *Server) register(conn net.Conn) error {
 	if err != nil {
 		return err
 	}
-	s.Lock()
-	s.connCount++
-	s.Unlock()
+
 	if strings.TrimSpace(username) == "" {
 		return errors.New("empty Username")
 	}
-	s.Lock()
-	s.connCount++
-	s.Unlock()
 	s.users.Store(conn, strings.TrimRight(username, "\r\n"))
 	fmt.Fprint(conn, s.history)
 	fmt.Fprint(conn, s.message(conn))
