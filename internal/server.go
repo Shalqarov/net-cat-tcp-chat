@@ -3,6 +3,7 @@ package internal
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"net"
 	"sync"
 )
@@ -16,6 +17,9 @@ type Server struct {
 
 func (s *Server) handleConnection(conn net.Conn) {
 	defer s.logout(conn)
+	s.Lock()
+	s.connCount++
+	s.Unlock()
 	err := s.register(conn)
 	if err != nil {
 		fmt.Fprintf(conn, "Registration failed: %v\n", err.Error())
@@ -24,15 +28,19 @@ func (s *Server) handleConnection(conn net.Conn) {
 	for {
 		userInput, err := bufio.NewReader(conn).ReadString('\n')
 		if err != nil {
-			return
+			break
 		}
 		if userInput == "\n" {
 			fmt.Fprint(conn, s.message(conn))
 			continue
 		}
+		if userInput == "--exit\n" {
+			break
+		}
 		s.sendMessage(conn, userInput)
 		fmt.Fprint(conn, s.message(conn))
 	}
+	log.Printf("Closing conection with %s", conn.RemoteAddr())
 }
 
 func (s *Server) sendMessage(conn net.Conn, input string) {

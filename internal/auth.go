@@ -2,6 +2,7 @@ package internal
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -16,9 +17,10 @@ func (s *Server) register(conn net.Conn) error {
 	if err != nil {
 		return err
 	}
-	s.Lock()
-	s.connCount++
-	s.Unlock()
+
+	if strings.TrimSpace(username) == "" {
+		return errors.New("empty Username")
+	}
 	s.users.Store(conn, strings.TrimRight(username, "\r\n"))
 	fmt.Fprint(conn, s.history)
 	fmt.Fprint(conn, s.message(conn))
@@ -39,7 +41,7 @@ func (s *Server) welcomeMessage(conn net.Conn) {
 	username, _ := s.users.Load(conn)
 	msg := fmt.Sprintf("%s has joined our chat...\n", username.(string))
 	s.Lock()
-	s.history += s.message(conn) + msg
+	s.history += timeStamp() + msg
 	s.Unlock()
 	fmt.Printf("%s has joined to the server\n", username.(string))
 	log.Printf("%s has joined to the server\n", username.(string))
@@ -47,10 +49,13 @@ func (s *Server) welcomeMessage(conn net.Conn) {
 }
 
 func (s *Server) logoutMessage(conn net.Conn) {
-	username, _ := s.users.Load(conn)
+	username, ok := s.users.Load(conn)
+	if !ok {
+		return
+	}
 	msg := fmt.Sprintf("%s has left our chat...\n", username.(string))
 	s.Lock()
-	s.history += s.message(conn) + msg
+	s.history += timeStamp() + msg
 	s.Unlock()
 	fmt.Printf("%s has left server\n", username.(string))
 	log.Printf("%s has left server\n", username.(string))
