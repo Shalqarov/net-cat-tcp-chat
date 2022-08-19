@@ -19,7 +19,11 @@ func PortParse(args []string) (int, error) {
 
 func (s *Server) message(conn net.Conn) string {
 	username, _ := s.users.Load(conn)
-	return "[" + time.Now().Format(TIME_FORMAT) + "]" + "[" + username.(string) + "]:"
+	return timeStamp() + "[" + username.(string) + "]:"
+}
+
+func timeStamp() string {
+	return "[" + time.Now().Format(TIME_FORMAT) + "]"
 }
 
 func (s *Server) notification(conn net.Conn, msg string) {
