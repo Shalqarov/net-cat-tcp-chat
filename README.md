@@ -15,7 +15,9 @@ $
 
 ### Client:
 ```
-$ nc localhost *port*
+$ go run ./cmd/client *host* *port*
+for example
+$ go run ./cmd/client localhost 8989
 ```
 
 ## Objectives
