@@ -9,7 +9,6 @@ import (
 	"net"
 	"os"
 	"sync"
-	"time"
 )
 
 func readRoutine(ctx context.Context, cancel context.CancelFunc, conn net.Conn) {
@@ -51,7 +50,8 @@ OUTER:
 func main() {
 	flag.Parse()
 	dialer := &net.Dialer{}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+	ctx, cancel := context.WithCancel(context.Background())
 
 	host := flag.Arg(0)
 	port := flag.Arg(1)
